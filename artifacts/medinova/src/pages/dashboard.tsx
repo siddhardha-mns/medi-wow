@@ -1,159 +1,219 @@
-import React from "react";
-import { useGetDashboardSummary, useGetDashboardActivity, useGetAdherenceStats, useGetTodayReminders } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, AlertCircle, CheckCircle2, Clock, Flame, Calendar, Pill } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { format } from "date-fns";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from "react";
+import { useLocation } from "wouter";
+import { motion } from "framer-motion";
+import { Pill, Bot, Mic, MicOff, ChevronRight, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react/audio";
+import { useCreateOpenaiConversation, getListOpenaiConversationsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.12, duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
+
+const cardHover = {
+  rest: { scale: 1, y: 0 },
+  hover: { scale: 1.025, y: -4, transition: { duration: 0.2, ease: "easeOut" } },
+};
 
 export default function Dashboard() {
-  const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
-  const { data: activity, isLoading: isLoadingActivity } = useGetDashboardActivity();
-  const { data: adherence, isLoading: isLoadingAdherence } = useGetAdherenceStats();
-  const { data: todayReminders, isLoading: isLoadingToday } = useGetTodayReminders();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const createConv = useCreateOpenaiConversation();
+  const { state: recState, startRecording, stopRecording } = useVoiceRecorder();
+  const [isRecording, setIsRecording] = useState(false);
+  const [pendingBlob, setPendingBlob] = useState<Blob | null>(null);
+
+  const goToChat = () => navigate("/chat");
+  const goToReminders = () => navigate("/reminders");
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      setIsRecording(false);
+      const blob = await stopRecording();
+      if (blob && blob.size > 0) {
+        try {
+          const conv = await createConv.mutateAsync({ data: { title: "Voice Chat" } });
+          queryClient.invalidateQueries({ queryKey: getListOpenaiConversationsQueryKey() });
+          navigate(`/chat?voice=${conv.id}`);
+          setPendingBlob(blob);
+        } catch {
+          toast({ title: "Error", description: "Could not start voice chat.", variant: "destructive" });
+        }
+      }
+    } else {
+      setIsRecording(true);
+      await startRecording();
+    }
+  };
 
   return (
-    <div className="p-6 md:p-10 space-y-8 max-w-7xl mx-auto w-full">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <p className="text-muted-foreground mt-1">Here is your health summary for today.</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-12 relative overflow-hidden">
+      {/* Ambient background blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-3xl" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Adherence Rate</CardTitle>
-            <Activity className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-20" /> : (
-              <div className="text-2xl font-bold">{summary?.adherenceRate ?? 0}%</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Overall medication adherence</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-            <Flame className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-20" /> : (
-              <div className="text-2xl font-bold">{summary?.streak ?? 0} days</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Consecutive full adherence</p>
-          </CardContent>
-        </Card>
+      <div className="relative z-10 w-full max-w-2xl flex flex-col items-center gap-10">
+        {/* Header */}
+        <motion.div
+          className="flex flex-col items-center gap-3 text-center"
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+          custom={0}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Activity className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-2xl font-bold tracking-tight">MediNova</span>
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight leading-tight">
+            Your AI Health<br />Companion
+          </h1>
+          <p className="text-muted-foreground text-lg max-w-sm">
+            Smart medication reminders and a voice-enabled medical assistant — in your language.
+          </p>
+        </motion.div>
 
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Today's Progress</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-20" /> : (
-              <div className="text-2xl font-bold">{summary?.todayTaken ?? 0} / {summary?.todayTotal ?? 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Doses taken today</p>
-          </CardContent>
-        </Card>
+        {/* Main Cards */}
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+            custom={1}
+          >
+            <motion.button
+              variants={cardHover}
+              initial="rest"
+              whileHover="hover"
+              whileTap={{ scale: 0.98 }}
+              onClick={goToReminders}
+              className="w-full text-left rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-6 flex flex-col gap-4 shadow-sm hover:border-primary/40 hover:bg-card/80 transition-colors group"
+              data-testid="card-reminders"
+            >
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <Pill className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold mb-1">Medical Reminders</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Set up your medication schedule and track doses with smart reminders.
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-primary font-medium">
+                Manage reminders
+                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+          </motion.div>
 
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Active Reminders</CardTitle>
-            <Pill className="h-4 w-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-20" /> : (
-              <div className="text-2xl font-bold">{summary?.activeReminders ?? 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Total active medications</p>
-          </CardContent>
-        </Card>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+            custom={2}
+          >
+            <motion.button
+              variants={cardHover}
+              initial="rest"
+              whileHover="hover"
+              whileTap={{ scale: 0.98 }}
+              onClick={goToChat}
+              className="w-full text-left rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-6 flex flex-col gap-4 shadow-sm hover:border-blue-500/40 hover:bg-card/80 transition-colors group"
+              data-testid="card-chat"
+            >
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                <Bot className="h-6 w-6 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold mb-1">AI Chat Assistant</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Ask health questions in English, Hindi, Telugu, Tamil, Malayalam and more.
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-blue-500 font-medium">
+                Open assistant
+                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </motion.button>
+          </motion.div>
+        </div>
+
+        {/* Language badges */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+          custom={3}
+          className="flex items-center gap-2 flex-wrap justify-center"
+        >
+          <span className="text-xs text-muted-foreground">Supports:</span>
+          {["English", "Hindi", "Telugu", "Tamil", "Malayalam"].map((lang) => (
+            <span key={lang} className="text-xs px-2.5 py-1 rounded-full border border-border/60 text-muted-foreground">
+              {lang}
+            </span>
+          ))}
+        </motion.div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4 bg-card/50 backdrop-blur-sm border-border/50">
-          <CardHeader>
-            <CardTitle>7-Day Adherence</CardTitle>
-            <CardDescription>Your adherence rate over the last week.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {isLoadingAdherence ? (
-              <div className="h-full flex items-center justify-center">
-                <Skeleton className="h-full w-full" />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={adherence}>
-                  <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(val) => format(new Date(val), 'MMM d')}
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(val) => `${val}%`}
-                  />
-                  <Tooltip 
-                    cursor={{fill: 'var(--color-accent)'}}
-                    contentStyle={{backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)', borderRadius: '8px'}}
-                    labelFormatter={(val) => format(new Date(val), 'MMM d, yyyy')}
-                  />
-                  <Bar dataKey="rate" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-3 bg-card/50 backdrop-blur-sm border-border/50">
-          <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
-            <CardDescription>Upcoming and completed doses.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingToday ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
-              </div>
-            ) : todayReminders && todayReminders.length > 0 ? (
-              <div className="space-y-4">
-                {todayReminders.map(rem => (
-                  <div key={`${rem.id}-${rem.scheduledTime}`} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-background/50">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-10 rounded-full ${rem.status === 'taken' ? 'bg-green-500' : rem.status === 'missed' ? 'bg-red-500' : rem.status === 'skipped' ? 'bg-gray-500' : 'bg-blue-500'}`} />
-                      <div>
-                        <p className="font-medium">{rem.medicationName}</p>
-                        <p className="text-xs text-muted-foreground">{rem.dosage} at {rem.scheduledTime}</p>
-                      </div>
-                    </div>
-                    <Badge variant={rem.status === 'taken' ? 'default' : 'secondary'} className={
-                      rem.status === 'taken' ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20' : 
-                      rem.status === 'missed' ? 'bg-red-500/10 text-red-600 hover:bg-red-500/20' : 
-                      rem.status === 'skipped' ? 'bg-gray-500/10 text-gray-600 hover:bg-gray-500/20' : 
-                      'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20'
-                    }>
-                      {rem.status.charAt(0).toUpperCase() + rem.status.slice(1)}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto opacity-20 mb-3" />
-                <p>No reminders scheduled for today</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Floating Mic Button */}
+      <motion.div
+        className="fixed bottom-8 right-8 z-20"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.5, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleMicClick}
+          className={`relative w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-colors ${
+            isRecording
+              ? "bg-red-500 text-white"
+              : "bg-primary text-primary-foreground"
+          }`}
+          data-testid="button-floating-mic"
+        >
+          {isRecording && (
+            <motion.span
+              className="absolute inset-0 rounded-full bg-red-500 opacity-40"
+              animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          )}
+          {isRecording ? <MicOff className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
+        </motion.button>
+        {!isRecording && (
+          <motion.p
+            className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+          >
+            Quick voice
+          </motion.p>
+        )}
+        {isRecording && (
+          <motion.p
+            className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs text-red-400 whitespace-nowrap animate-pulse"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            Listening...
+          </motion.p>
+        )}
+      </motion.div>
     </div>
   );
 }
