@@ -5,8 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Layout } from "@/components/layout";
 import NotFound from "@/pages/not-found";
+import { LoginScreen } from "@/components/login-screen";
+import { useAuth } from "@workspace/replit-auth-web";
+import { Loader2 } from "lucide-react";
 
-// Pages placeholder until created
 import Dashboard from "@/pages/dashboard";
 import Reminders from "@/pages/reminders";
 import Chat from "@/pages/chat";
@@ -28,14 +30,34 @@ function Router() {
   );
 }
 
+function AuthGuard() {
+  const { isLoading, isAuthenticated, login } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={login} />;
+  }
+
+  return (
+    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+      <Router />
+    </WouterRouter>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="medinova-theme">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
+          <AuthGuard />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
