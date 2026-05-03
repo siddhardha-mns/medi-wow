@@ -59,7 +59,7 @@ router.get("/openai/conversations/:id", async (req, res) => {
   try {
     const { id } = GetOpenaiConversationParams.parse({ id: Number(req.params.id) });
     const [conv] = await db.select().from(conversations).where(eq(conversations.id, id));
-    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
     const msgs = await db.select().from(messages)
       .where(eq(messages.conversationId, id))
       .orderBy(asc(messages.createdAt));
@@ -100,7 +100,7 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
     const body = SendOpenaiMessageBody.parse(req.body);
 
     const [conv] = await db.select().from(conversations).where(eq(conversations.id, id));
-    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
 
     // Save user message
     await db.insert(messages).values({
@@ -167,7 +167,7 @@ router.post("/openai/conversations/:id/voice-messages", async (req, res) => {
     const body = SendOpenaiVoiceMessageBody.parse(req.body);
 
     const [conv] = await db.select().from(conversations).where(eq(conversations.id, id));
-    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
 
     const audioBuffer = Buffer.from(body.audio, "base64");
     const { buffer, format } = await ensureCompatibleFormat(audioBuffer);
@@ -184,9 +184,6 @@ router.post("/openai/conversations/:id/voice-messages", async (req, res) => {
     for await (const event of stream) {
       if (event.type === "transcript") {
         assistantTranscript += event.data;
-      }
-      if (event.type === "user_transcript") {
-        userTranscript += event.data;
       }
       res.write(`data: ${JSON.stringify(event)}\n\n`);
     }

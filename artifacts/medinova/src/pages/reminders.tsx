@@ -124,7 +124,7 @@ export default function Reminders() {
     try {
       if (editingId !== null) {
         await updateReminder.mutateAsync({
-          params: { id: editingId },
+          id: editingId,
           data: {
             medicationName: form.medicationName,
             dosage: form.dosage,
@@ -161,7 +161,7 @@ export default function Reminders() {
 
   const handleDelete = async (id: number) => {
     try {
-      await deleteReminder.mutateAsync({ params: { id } });
+      await deleteReminder.mutateAsync({ id });
       invalidate();
       toast({ title: "Reminder deleted" });
     } catch {
@@ -172,7 +172,7 @@ export default function Reminders() {
   const handleLog = async (id: number, scheduledTime: string, status: "taken" | "missed" | "skipped") => {
     try {
       await logDose.mutateAsync({
-        params: { id },
+        id,
         data: { status, scheduledTime, takenAt: status === "taken" ? new Date().toISOString() : undefined },
       });
       invalidate();
@@ -185,7 +185,7 @@ export default function Reminders() {
   const handleToggleActive = async (r: NonNullable<typeof reminders>[number]) => {
     try {
       await updateReminder.mutateAsync({
-        params: { id: r.id },
+        id: r.id,
         data: { isActive: !r.isActive },
       });
       invalidate();

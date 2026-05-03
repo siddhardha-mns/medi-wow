@@ -1,0 +1,28 @@
+npm warn Unknown project config "auto-install-peers". This will stop working in the next major version of npm.
+npm warn Unknown project config "strict-peer-dependencies". This will stop working in the next major version of npm.
+
+> workspace@0.0.0 typecheck /Users/nikhilsaisiddhardhamadagala/medi-wow/MediNova-intproj
+> pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+
+
+> workspace@0.0.0 typecheck:libs /Users/nikhilsaisiddhardhamadagala/medi-wow/MediNova-intproj
+> tsc --build
+
+Scope: 4 of 12 workspace projects
+artifacts/api-server typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/medinova typecheck$ tsc -p tsconfig.json --noEmit
+artifacts/mockup-sandbox typecheck$ tsc -p tsconfig.json --noEmit
+scripts typecheck$ tsc -p tsconfig.json --noEmit
+scripts typecheck: Done
+artifacts/api-server typecheck: src/routes/reminders.ts(31,7): error TS2769: No overload matches this call.
+artifacts/api-server typecheck:   Overload 2 of 2, '(values: { medicationName: string | SQL<unknown> | Placeholder<string, any>; dosage: string | SQL<unknown> | Placeholder<string, any>; frequency: string | SQL<...> | Placeholder<...>; ... 7 more ...; color?: string | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error.
+artifacts/api-server typecheck:     Object literal may only specify known properties, and 'medicationName' does not exist in type '{ medicationName: string | SQL<unknown> | Placeholder<string, any>; dosage: string | SQL<unknown> | Placeholder<string, any>; frequency: string | SQL<unknown> | Placeholder<...>; ... 7 more ...; color?: string | ... 3 more ... | undefined; }[]'.
+artifacts/api-server typecheck: src/routes/reminders.ts(109,12): error TS2345: Argument of type '{ color?: string | null | undefined; isActive?: boolean | undefined; notes?: string | null | undefined; endDate?: Date | null | undefined; startDate?: Date | undefined; times?: string[] | undefined; frequency?: "daily" | ... 4 more ... | undefined; dosage?: string | undefined; medicationName?: string | undefined; }' is not assignable to parameter of type '{ medicationName?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | undefined; dosage?: string | SQL<...> | PgColumn<...> | undefined; ... 8 more ...; color?: string | ... 3 more ... | undefined; }'.
+artifacts/api-server typecheck:   Types of property 'startDate' are incompatible.
+artifacts/api-server typecheck:     Type 'Date | undefined' is not assignable to type 'string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | undefined'.
+artifacts/api-server typecheck:       Type 'Date' is not assignable to type 'string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | undefined'.
+artifacts/api-server typecheck: Failed
+/Users/nikhilsaisiddhardhamadagala/medi-wow/MediNova-intproj/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 typecheck: `tsc -p tsconfig.json --noEmit`
+Exit status 2
+ ELIFECYCLE  Command failed with exit code 2.

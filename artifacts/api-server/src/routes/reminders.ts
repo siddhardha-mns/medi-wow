@@ -32,8 +32,8 @@ router.post("/reminders", async (req, res) => {
       dosage: body.dosage,
       frequency: body.frequency,
       times: body.times,
-      startDate: body.startDate,
-      endDate: body.endDate ?? null,
+      startDate: body.startDate.toISOString(),
+      endDate: body.endDate ? body.endDate.toISOString() : null,
       notes: body.notes ?? null,
       isActive: true,
       color: body.color ?? null,
@@ -93,7 +93,7 @@ router.get("/reminders/:id", async (req, res) => {
   try {
     const { id } = GetReminderParams.parse({ id: Number(req.params.id) });
     const [reminder] = await db.select().from(remindersTable).where(eq(remindersTable.id, id));
-    if (!reminder) return res.status(404).json({ error: "Not found" });
+    if (!reminder) { res.status(404).json({ error: "Not found" }); return; }
     res.json(reminder);
   } catch (err) {
     req.log.error(err);
@@ -111,15 +111,15 @@ router.put("/reminders/:id", async (req, res) => {
         ...(body.dosage !== undefined && { dosage: body.dosage }),
         ...(body.frequency !== undefined && { frequency: body.frequency }),
         ...(body.times !== undefined && { times: body.times }),
-        ...(body.startDate !== undefined && { startDate: body.startDate }),
-        ...(body.endDate !== undefined && { endDate: body.endDate ?? null }),
+        ...(body.startDate !== undefined && { startDate: body.startDate.toISOString() }),
+        ...(body.endDate !== undefined && { endDate: body.endDate ? body.endDate.toISOString() : null }),
         ...(body.notes !== undefined && { notes: body.notes ?? null }),
         ...(body.isActive !== undefined && { isActive: body.isActive }),
         ...(body.color !== undefined && { color: body.color ?? null }),
       })
       .where(eq(remindersTable.id, id))
       .returning();
-    if (!updated) return res.status(404).json({ error: "Not found" });
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     await db.insert(activityLogTable).values({
       type: "reminder_updated",
       description: `Updated reminder for ${updated.medicationName}`,
@@ -148,7 +148,7 @@ router.post("/reminders/:id/log", async (req, res) => {
     const { id } = LogReminderDoseParams.parse({ id: Number(req.params.id) });
     const body = LogReminderDoseBody.parse(req.body);
     const [reminder] = await db.select().from(remindersTable).where(eq(remindersTable.id, id));
-    if (!reminder) return res.status(404).json({ error: "Not found" });
+    if (!reminder) { res.status(404).json({ error: "Not found" }); return; }
     const [log] = await db.insert(doseLogsTable).values({
       reminderId: id,
       status: body.status,
